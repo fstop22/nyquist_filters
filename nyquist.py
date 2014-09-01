@@ -3,13 +3,44 @@ import scipy as sp
 import scipy.signal as sig
 
 
-def FftSize(Q):
+def _FftSize(Q):
 
     '''
     Determines FFT size based on samples/symbol (Q) that gaurentees FFT is
     evaulated at f=0.5
     '''
     return int(sp.floor(4096.0/Q)*Q)
+
+def _design(N, Q, alpha, desired, mu=1.0e-2, eps=1.0e12):
+
+    # Initial pass and stop bands of filter
+    Fs = float(Q)
+    f0 = 0
+    f1 = 1.0/2*(1-alpha)
+    f2 = 1.0/2*(1+alpha)
+    f3 = Fs/2
+    F = [f0, f1, f2, f3]
+
+    # Desired gain of pass and stop bands
+    G = [1, 0]
+
+    # Design initial filter
+    N_fft = _FftSize(Q)
+    h = sig.remez(N, F, G, Hz=Fs)
+    [w, H] = sig.freqz(h, 1, N_fft)
+    f = Q*w/(2*sp.pi)
+    idx = (f == 0.5).nonzero()[0]
+
+    # Gradient descent method to move 3 dB point of filter
+    error = desired - sp.absolute(H[idx])
+    while sp.absolute(error) >= eps:
+        f1 = f1 * (1 + mu*error)
+        F[1] = f1
+        h = sig.remez(N, F, G, Hz=Fs)
+        [w, H] = sig.freqz(h, 1, N_fft)
+        error = desired - sp.absolute(H[idx])
+
+    return h
 
 
 def rootNyquist(N, Q, alpha, mu=1.0e-2, eps=1.0e-12):
@@ -40,35 +71,8 @@ def rootNyquist(N, Q, alpha, mu=1.0e-2, eps=1.0e-12):
     "Multirate Signal Processing for Communication Systems," Fred Harris
     '''
 
-    # Initial pass and stop bands of filter
-    Fs = float(Q)
-    f0 = 0
-    f1 = 1.0/2*(1-alpha)
-    f2 = 1.0/2*(1+alpha)
-    f3 = Fs/2
-    F = [f0, f1, f2, f3]
-
-    # Desired gain of pass and stop bands
-    G = [1, 0]
-
-    # Design initial filter
-    N_fft = FftSize(Q)
-    h = sig.remez(N, F, G, Hz=Fs)
-    [w, H] = sig.freqz(h, 1, N_fft)
-    f = Q*w/(2*sp.pi)
-    idx = (f == 0.5).nonzero()[0]
-
-    # Gradient descent method to move 3 dB point of filter
-    error = sp.sqrt(2.0)/2 - sp.absolute(H[idx])
-    while sp.absolute(error) >= eps:
-        f1 = f1 * (1 + mu*error)
-        F[1] = f1
-        h = sig.remez(N, F, G, Hz=Fs)
-        [w, H] = sig.freqz(h, 1, N_fft)
-        error = sp.sqrt(2.0)/2 - sp.absolute(H[idx])
-
-    return h
-
+    desired = sp.sqrt(2.0)/2.0
+    return _design(N, Q, alpha, desired, mu, eps)
 
 def Nyquist(N, Q, alpha, mu=1.0e-2, eps=1.0e-12):
 
@@ -94,34 +98,8 @@ def Nyquist(N, Q, alpha, mu=1.0e-2, eps=1.0e-12):
         Array containing coefficients of root-nyquist filter
     '''
 
-    # Initial pass and stop bands of filter
-    Fs = float(Q)
-    f0 = 0
-    f1 = 1.0/2*(1-alpha)
-    f2 = 1.0/2*(1+alpha)
-    f3 = Fs/2
-    F = [f0, f1, f2, f3]
-
-    # Desired gain of pass and stop bands
-    G = [1, 0]
-
-    # Design initial filter
-    N_fft = FftSize(Q)
-    h = sig.remez(N, F, G, Hz=Fs)
-    [w, H] = sig.freqz(h, 1, N_fft)
-    f = Q*w/(2*sp.pi)
-    idx = (f == 0.5).nonzero()[0]
-
-    # Gradient descent method to move 6 dB point of filter
-    error = 0.5 - sp.absolute(H[idx])
-    while sp.absolute(error) >= eps:
-        f1 = f1 * (1 + mu*error)
-        F[1] = f1
-        h = sig.remez(N, F, G, Hz=Fs)
-        [w, H] = sig.freqz(h, 1, N_fft)
-        error = 0.5 - sp.absolute(H[idx])
-
-    return h
+    desired = 0.5
+    return _design(N, Q, alpha, desired, mu, eps)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -129,7 +107,7 @@ if __name__ == "__main__":
     N = 129
     Q = 4
     alpha = 0.25
-    N_fft = FftSize(Q)
+    N_fft = _FftSize(Q)
 
     # Design root-nyquist filter
     h = rootNyquist(N, Q, alpha)
