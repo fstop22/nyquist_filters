@@ -30,6 +30,12 @@ class nyquistFilterTestCase(unittest.TestCase):
         idx = self.N/2
         self.assertItemsEqual(self.h[:idx], self.h[:idx:-1])
 
+    def testISI(self):
+        sym = self.h[0::self.Q]
+        sym[self.N/2/self.Q] -= 1.0/self.Q
+        for s in sym:
+            self.assertAlmostEqual(s, 0.0, places=3)
+
     def tearDown(self):
         pass
 
@@ -57,7 +63,13 @@ class rootNyquistFilterTestCase(unittest.TestCase):
     def testSymmetry(self):
         idx = self.N/2
         self.assertItemsEqual(self.h[:idx], self.h[:idx:-1])
-    
+ 
+    def testISI(self):
+        hh = sp.convolve(self.h, self.h)
+        sym = hh[0::self.Q]
+        sym[self.N/self.Q] -= 1.0/self.Q
+        for s in sym:
+            self.assertAlmostEqual(s, 0.0, places=3)   
     def tearDown(self):
         pass
 if __name__ == "__main__":
