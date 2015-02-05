@@ -24,8 +24,11 @@ class nyquistFilterTestCase(unittest.TestCase):
         w,H = sig.freqz(self.h, 1, N_fft)
         f = self.Q*w/(2*sp.pi)
         idx = (f == 0.5).nonzero()[0]
-
         self.assertAlmostEqual(sp.absolute(H[idx][0]), 0.5, places=10)
+
+    def testSymmetry(self):
+        idx = self.N/2
+        self.assertItemsEqual(self.h[:idx], self.h[:idx:-1])
 
     def tearDown(self):
         pass
@@ -49,9 +52,12 @@ class rootNyquistFilterTestCase(unittest.TestCase):
         w,H = sig.freqz(self.h, 1, N_fft)
         f = self.Q*w/(2*sp.pi)
         idx = (f == 0.5).nonzero()[0]
-
         self.assertAlmostEqual(sp.absolute(H[idx][0]), sp.sqrt(2)/2, places=10)
 
+    def testSymmetry(self):
+        idx = self.N/2
+        self.assertItemsEqual(self.h[:idx], self.h[:idx:-1])
+    
     def tearDown(self):
         pass
 if __name__ == "__main__":
